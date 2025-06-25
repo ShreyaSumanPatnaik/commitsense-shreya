@@ -14,18 +14,23 @@ if [[ ! -s "$TMPDIFF" ]]; then
     exit 0
 fi
 
+DIFF_CONTENT=$(cat "$TMPDIFF" | jq -Rs .)  # Safely encode diff
+
 PROMPT="You are an assistant that writes git commit messages. Use the following diff to write a clear and concise commit message:\n$(cat "$TMPDIFF")"
 
 #Gemini API Call
 RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$GEMINI_API_KEY" \
   -H "Content-Type: application/json" \
   -d "{
-        'contents': [
-	{
-		'parts': [{'text': \"$PROMPT\"}]
-	}
-       ]
-     }")
+       \"contents\": [
+         {
+	   \"parts\": [
+	     {
+	       \"text\": \"Write a git commit message using conventional commits based on this diff:\n\" $DIFF_CONTENT
+	     }
+	   ]
+	 ]
+       }")
 
 # Extract commit message
 COMMIT_MSG=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
