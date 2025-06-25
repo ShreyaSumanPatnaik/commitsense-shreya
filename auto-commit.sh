@@ -15,26 +15,14 @@ if [[ ! -s "$TMPDIFF" ]]; then
     exit 0
 fi
 
-
-PROMPT="Write a concise git commit message using conventional commits format based on this diff:\n$(cat "$TMPDIFF")"
+PROMPT=$(cat "$TMPDIFF")
+PROMPT_JSON=$(jq -n --arg text "$PROMPT" '{"contents":[{"parts":[{"text": $text}]}]}')
 
 #Gemini API Call
-RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$GEMINI_API_KEY" \
+RESPONSE=$(curl -s -X POST \
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$GEMINI_API_KEY" \
   -H "Content-Type: application/json" \
-  -d @- <<EOF
- {
-   "contents": [
-     {
-       "parts": [
-         {
-           "text": "$PROMPT"
-         }
-       ]
-     }
-  ]
-}
-EOF
-)
+  -d "$PROMPT_JSON")
 
 #Print raw response for debug
 echo "Raw API Response:"
