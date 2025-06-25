@@ -31,8 +31,10 @@ RESPONSE=$(curl -s -X POST \
    -d "$PROMPT_JSON")
 
 #Print raw response for debug
-echo "Raw API Response:"
-echo "$RESPONSE"
+if [[ "$DEBUG" == "true" ]]; then
+	echo "Raw API Response:"
+	echo "$RESPONSE"
+fi 
 
 # Extract commit message
 COMMIT_MSG=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
