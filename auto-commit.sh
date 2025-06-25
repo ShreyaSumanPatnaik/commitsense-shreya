@@ -20,7 +20,7 @@ PROMPT_JSON=$(jq -n --arg text "$PROMPT" '{"contents":[{"parts":[{"text": $text}
 
 #Gemini API Call
 RESPONSE=$(curl -s -X POST \
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$GEMINI_API_KEY" \
+  "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=$GEMINI_API_KEY" \
   -H "Content-Type: application/json" \
   -d "$PROMPT_JSON")
 
