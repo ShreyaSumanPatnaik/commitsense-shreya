@@ -2,57 +2,41 @@
 
 set -euo pipefail
 
-# Load your config file where the API key and model are set
-source "${HOME}/.gitmsghookrc"
-
 cd "$(git rev-parse --show-toplevel)"
-
 git add .
 
 TMPDIFF=$(mktemp /tmp/gitdiff.XXXXXX)
-git diff --cached | head -n "${MAX_DIFF_LINES:-200}" > "$TMPDIFF"
+git diff --cached | head -n 100 > "$TMPDIFF"
 
 if [[ ! -s "$TMPDIFF" ]]; then
-	echo "No changes to commit."
-    	rm -f "$TMPDIFF"
-  	exit 0
+    echo "No changes to commit."
+    rm -f "$TMPDIFF"
+    exit 0
 fi
 
-#Create an AI prompt
-PROMPT=$(cat <<EOF 
-You are a helpful assistant that writes Conventional Commits messages.
-Based on this diff, produce a one-line subject and a short body.
+PROMPT="You are an assistant that writes git commit messages. Use the following diff to write a clear and concise commit message:\n$(cat "$TMPDIFF")"
 
-$(cat "$TMPDIFF")
-EOF
-)
-
-# Ask OpenAI for a commit message
-AI_RESPONSE=$(curl -s https://api.openai.com/v1/chat/completions \
-  -H "Authorization: Bearer $OPENAI_API_KEY" \
+#Gemini API Call
+RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$GEMINI_API_KEY" \
   -H "Content-Type: application/json" \
-  -d "$(jq -n \
-    --arg model "$MODEL" \
-    --arg content "$PROMPT" \
-    '{
-      model: $model,
-      messages: [{role: "user", content: $content}],
-      max_tokens: 150,
-      temperature: 0.3
-    }'
-  )"
-)
-#Debug line - print raw AI response
-echo " AI Raw Response: $AI_RESPONSE"
+  -d "{
+        'contents': [
+	{
+		'parts': [{'text': \"$PROMPT\"}]
+	}
+       ]
+     }")
 
-# Extract commit message from API response
-COMMIT_MSG=$(printf '%s' "$AI_RESPONSE" | jq -r '.choices[0].message.content')
+# Extract commit message
+COMMIT_MSG=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
+
+echo " AI Response: $COMMIT_MSG"
 
 # Final Commit
 if [[ -n "$COMMIT_MSG" && "$COMMIT_MSG" != "null" ]]; then
 	git commit -m "$COMMIT_MSG"
 else
-	echo "AI did not retrun a valid message. Falling back to dummy."
+	echo "Gemini didn't return a valid message. Using fallback."
 	git commit -m "feat: dummy commit - AI fallback"
 fi
 
