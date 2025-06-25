@@ -3,6 +3,7 @@
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
+
 git add .
 
 TMPDIFF=$(mktemp /tmp/gitdiff.XXXXXX)
@@ -14,28 +15,34 @@ if [[ ! -s "$TMPDIFF" ]]; then
     exit 0
 fi
 
-DIFF_CONTENT=$(cat "$TMPDIFF" | jq -Rs .)  # Safely encode diff
 
-PROMPT="You are an assistant that writes git commit messages. Use the following diff to write a clear and concise commit message:\n$(cat "$TMPDIFF")"
+PROMPT="Write a concise git commit message using conventional commits format based on this diff:\n$(cat "$TMPDIFF")"
 
 #Gemini API Call
 RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$GEMINI_API_KEY" \
   -H "Content-Type: application/json" \
-  -d "{
-       \"contents\": [
+  -d @- <<EOF
+ {
+   "contents": [
+     {
+       "parts": [
          {
-	   \"parts\": [
-	     {
-	       \"text\": \"Write a git commit message using conventional commits based on this diff:\n\" $DIFF_CONTENT
-	     }
-	   ]
-	 ]
-       }")
+           "text": "$PROMPT"
+         }
+       ]
+     }
+  ]
+}
+EOF
+)
+
+#Print raw response for debug
+echo "Raw API Response:"
+echo "$RESPONSE"
 
 # Extract commit message
 COMMIT_MSG=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
 
-echo " AI Response: $COMMIT_MSG"
 
 # Final Commit
 if [[ -n "$COMMIT_MSG" && "$COMMIT_MSG" != "null" ]]; then
