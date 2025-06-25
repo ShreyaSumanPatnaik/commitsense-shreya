@@ -14,7 +14,7 @@ if [[ ! -s "$TMPDIFF" ]]; then
     rm -f "$TMPDIFF"
     exit 0
 fi
-PROMPT=$(cat "$TMPDIFF")
+PROMPT="Generate a short and clear git commit message using the Conventional Commits format based on the following diff:\n$(cat "$TMPDIFF")"
 PROMPT_JSON=$(jq -n --arg text "$PROMPT" '{
   contents: [
     {
