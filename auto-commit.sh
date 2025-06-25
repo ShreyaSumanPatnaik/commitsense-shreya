@@ -14,26 +14,27 @@ if [[ ! -s "$TMPDIFF" ]]; then
     rm -f "$TMPDIFF"
     exit 0
 fi
+DIFF_CONTENT=$(cat "$TMPDIFF")
 
-PROMPT=$(cat "$TMPDIFF" | jq -Rs .)
+PROMPT="Write a consise commit message for this code diff:\n$DIFF_CONTENT"
+
+JSON_PAYLOAD=$(jq -n --arg prompt "$PROMPT" '{
+  contents: [
+    {
+      role: "user",
+      parts: [
+        { text: $prompt }
+      ]
+    }
+  ]
+}')
+
 
 #Gemini API Call
 RESPONSE=$(curl -s -X POST \
-   "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=$GEMINI_API_KEY" \
+   "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$GEMINI_API_KEY" \
    -H "Content-Type: application/json" \
-   -d "{
-     \"contents\": [
-     {
-       \"role\": \"user\",
-       \"parts\": [
-       {
-         \"text\": $PROMPT
-       }
-     ]       
-   }
- ]
-}")
-
+   -d "$JSON_PAYLOAD")
 
 #Print raw response for debug
 echo "Raw API Response:"
