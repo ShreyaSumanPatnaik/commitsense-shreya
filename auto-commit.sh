@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+: "${DEBUG:=false}"
 
 cd "$(git rev-parse --show-toplevel)"
 
