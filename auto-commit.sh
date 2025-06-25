@@ -15,31 +15,36 @@ if [[ ! -s "$TMPDIFF" ]]; then
     exit 0
 fi
 
-PROMPT=$(cat "$TMPDIFF")
-PROMPT_JSON=$(jq -n --arg text "$PROMPT" '{"contents":[{"parts":[{"text": $text}]}]}')
+PROMPT=$(cat "$TMPDIFF" | jq -Rs .)
 
 #Gemini API Call
 RESPONSE=$(curl -s -X POST \
    "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=$GEMINI_API_KEY" \
    -H "Content-Type: application/json" \
    -d "{
-     \"contents\": [{
+     \"contents\": [
+     {
        \"role\": \"user\",
-       \"parts\": [{
-         \"text\": \"$PROMPT\"
-       }]
-     }]
-   }")
+       \"parts\": [
+       {
+         \"text\": $PROMPT
+       }
+     ]       
+   }
+ ]
+}")
+
+
 #Print raw response for debug
 echo "Raw API Response:"
 echo "$RESPONSE"
 
 # Extract commit message
-COMMIT_MSG=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
+COMMIT_MSG=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty')
 
 
 # Final Commit
-if [[ -n "$COMMIT_MSG" && "$COMMIT_MSG" != "null" ]]; then
+if [[ -n "$COMMIT_MSG" ]]; then
 	git commit -m "$COMMIT_MSG"
 else
 	echo "Gemini didn't return a valid message. Using fallback."
