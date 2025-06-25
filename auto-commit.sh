@@ -19,34 +19,42 @@ if [[ ! -s "$TMPDIFF" ]]; then
 fi
 
 #Create an AI prompt
-read -r -d '' PROMPT <<EOF || true
+PROMPT=$(cat <<EOF 
 You are a helpful assistant that writes Conventional Commits messages.
 Based on this diff, produce a one-line subject and a short body.
 
 $(cat "$TMPDIFF")
 EOF
+)
 
 # Ask OpenAI for a commit message
 AI_RESPONSE=$(curl -s https://api.openai.com/v1/chat/completions \
-   -H "Authorization: Bearer $OPENAI_API_KEY" \
-   -H "Content-Type: application/json" \
-   -d @- <<JSON
-{
-"model": "$MODEL",
-"messages": [
-{ "role": "user", "content": $(printf '%q' "$PROMPT") }
-],
-"max_tokens": 150,
-"temperature": 0.3
-}
-JSON
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -n \
+    --arg model "$MODEL" \
+    --arg content "$PROMPT" \
+    '{
+      model: $model,
+      messages: [{role: "user", content: $content}],
+      max_tokens: 150,
+      temperature: 0.3
+    }'
+  )"
 )
+#Debug line - print raw AI response
+echo " AI Raw Response: $AI_RESPONSE"
 
 # Extract commit message from API response
 COMMIT_MSG=$(printf '%s' "$AI_RESPONSE" | jq -r '.choices[0].message.content')
 
-# Use it for git commit
-git commit -m "$COMMIT_MSG"
+# Final Commit
+if [[ -n "$COMMIT_MSG" && "$COMMIT_MSG" != "null" ]]; then
+	git commit -m "$COMMIT_MSG"
+else
+	echo "AI did not retrun a valid message. Falling back to dummy."
+	git commit -m "feat: dummy commit - AI fallback"
+fi
 
-# Cleanup
+#Cleanup
 rm -f "$TMPDIFF"
